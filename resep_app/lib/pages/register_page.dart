@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
 
 import '../services/auth_service.dart';
-import 'home_page.dart';
-import 'register_page.dart';
 
-class LoginPage extends StatefulWidget {
-  const LoginPage({super.key});
+class RegisterPage extends StatefulWidget {
+  const RegisterPage({super.key});
 
   @override
-  State<LoginPage> createState() => _LoginPageState();
+  State<RegisterPage> createState() => _RegisterPageState();
 }
 
-class _LoginPageState extends State<LoginPage> {
+class _RegisterPageState extends State<RegisterPage> {
+  final nameController = TextEditingController();
+
   final emailController = TextEditingController();
 
   final passwordController = TextEditingController();
@@ -20,12 +20,13 @@ class _LoginPageState extends State<LoginPage> {
 
   String message = '';
 
-  void login() async {
+  void register() async {
     setState(() {
       isLoading = true;
     });
 
-    bool success = await AuthService.login(
+    bool success = await AuthService.register(
+      nameController.text,
       emailController.text,
       passwordController.text,
     );
@@ -35,14 +36,14 @@ class _LoginPageState extends State<LoginPage> {
     });
 
     if (success) {
-      Navigator.pushReplacement(
+      ScaffoldMessenger.of(
         context,
+      ).showSnackBar(const SnackBar(content: Text('Register berhasil')));
 
-        MaterialPageRoute(builder: (_) => const HomePage()),
-      );
+      Navigator.pop(context);
     } else {
       setState(() {
-        message = 'Email atau password salah';
+        message = 'Register gagal';
       });
     }
   }
@@ -71,7 +72,7 @@ class _LoginPageState extends State<LoginPage> {
 
                 children: [
                   const Icon(
-                    Icons.restaurant_menu,
+                    Icons.person_add,
 
                     size: 80,
 
@@ -81,16 +82,28 @@ class _LoginPageState extends State<LoginPage> {
                   const SizedBox(height: 20),
 
                   const Text(
-                    'RESEP APP',
+                    'REGISTER',
 
                     style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
                   ),
 
-                  const SizedBox(height: 10),
-
-                  const Text('Login untuk melanjutkan'),
-
                   const SizedBox(height: 30),
+
+                  TextField(
+                    controller: nameController,
+
+                    decoration: InputDecoration(
+                      labelText: 'Name',
+
+                      prefixIcon: const Icon(Icons.person),
+
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(15),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 20),
 
                   TextField(
                     controller: emailController,
@@ -142,10 +155,10 @@ class _LoginPageState extends State<LoginPage> {
                               ),
                             ),
 
-                            onPressed: login,
+                            onPressed: register,
 
                             child: const Text(
-                              'LOGIN',
+                              'REGISTER',
 
                               style: TextStyle(
                                 color: Colors.white,
@@ -159,20 +172,6 @@ class _LoginPageState extends State<LoginPage> {
                   const SizedBox(height: 15),
 
                   Text(message, style: const TextStyle(color: Colors.red)),
-
-                  const SizedBox(height: 10),
-
-                  TextButton(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-
-                        MaterialPageRoute(builder: (_) => const RegisterPage()),
-                      );
-                    },
-
-                    child: const Text('Belum punya akun? Register'),
-                  ),
                 ],
               ),
             ),
