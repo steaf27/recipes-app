@@ -1,7 +1,8 @@
-import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
 
 import '../models/recipe_model.dart';
 import '../services/auth_service.dart';
@@ -17,26 +18,42 @@ class EditRecipePage extends StatefulWidget {
 
 class _EditRecipePageState extends State<EditRecipePage> {
   final titleController = TextEditingController();
-
   final descriptionController = TextEditingController();
+  final ingredientsController = TextEditingController();
+  final toolsController = TextEditingController();
+  final stepsController = TextEditingController();
 
   final formKey = GlobalKey<FormState>();
 
   bool isLoading = false;
+
+  File? image;
+
+  final picker = ImagePicker();
 
   @override
   void initState() {
     super.initState();
 
     titleController.text = widget.recipe.title;
-
     descriptionController.text = widget.recipe.description;
+    ingredientsController.text = widget.recipe.ingredients;
+    toolsController.text = widget.recipe.tools;
+    stepsController.text = widget.recipe.steps;
+  }
+
+  Future<void> pickImage() async {
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+
+    if (pickedFile != null) {
+      setState(() {
+        image = File(pickedFile.path);
+      });
+    }
   }
 
   Future<void> updateRecipe() async {
-    if (!formKey.currentState!.validate()) {
-      return;
-    }
+    if (!formKey.currentState!.validate()) return;
 
     setState(() {
       isLoading = true;
@@ -44,23 +61,29 @@ class _EditRecipePageState extends State<EditRecipePage> {
 
     String? token = await AuthService.getToken();
 
-    final response = await http.put(
+    var request = http.MultipartRequest(
+      'POST',
       Uri.parse('http://10.0.2.2:8000/api/recipes/${widget.recipe.id}'),
-
-      headers: {
-        'Accept': 'application/json',
-
-        'Authorization': 'Bearer $token',
-
-        'Content-Type': 'application/json',
-      },
-
-      body: jsonEncode({
-        'title': titleController.text,
-
-        'description': descriptionController.text,
-      }),
     );
+
+    request.headers['Authorization'] = 'Bearer $token';
+    request.headers['Accept'] = 'application/json';
+
+    request.fields['_method'] = 'PUT';
+
+    request.fields['title'] = titleController.text;
+    request.fields['description'] = descriptionController.text;
+    request.fields['ingredients'] = ingredientsController.text;
+    request.fields['tools'] = toolsController.text;
+    request.fields['steps'] = stepsController.text;
+
+    if (image != null) {
+      request.files.add(
+        await http.MultipartFile.fromPath('image', image!.path),
+      );
+    }
+
+    var response = await request.send();
 
     setState(() {
       isLoading = false;
@@ -75,73 +98,227 @@ class _EditRecipePageState extends State<EditRecipePage> {
     } else {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(response.body)));
+      ).showSnackBar(const SnackBar(content: Text('Gagal update resep')));
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Edit Resep'),
+      backgroundColor: const Color(0xffF5F0FF),
 
+      appBar: AppBar(
         backgroundColor: Colors.deepPurple,
+
+        title: const Text("Edit Resep", style: TextStyle(color: Colors.white)),
       ),
 
-      body: Padding(
-        padding: const EdgeInsets.all(20),
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
 
-        child: Form(
-          key: formKey,
+          child: Form(
+            key: formKey,
 
-          child: Column(
-            children: [
-              TextFormField(
-                controller: titleController,
+            child: Card(
+              elevation: 5,
 
-                decoration: const InputDecoration(labelText: 'Judul Resep'),
-
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Judul wajib diisi';
-                  }
-
-                  return null;
-                },
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(25),
               ),
 
-              const SizedBox(height: 20),
+              child: Padding(
+                padding: const EdgeInsets.all(20),
 
-              TextFormField(
-                controller: descriptionController,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
 
-                maxLines: 4,
+                  children: [
+                    const Center(
+                      child: Text(
+                        "✏ Edit Resep",
+                        style: TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.deepPurple,
+                        ),
+                      ),
+                    ),
 
-                decoration: const InputDecoration(labelText: 'Deskripsi'),
+                    const SizedBox(height: 30),
 
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Deskripsi wajib diisi';
-                  }
+                    TextFormField(
+                      controller: titleController,
 
-                  return null;
-                },
-              ),
+                      decoration: InputDecoration(
+                        labelText: "Judul Resep",
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(15),
+                        ),
+                      ),
 
-              const SizedBox(height: 30),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return "Judul wajib diisi";
+                        }
+                        return null;
+                      },
+                    ),
 
-              SizedBox(
-                width: double.infinity,
+                    const SizedBox(height: 20),
 
-                child: ElevatedButton(
-                  onPressed: isLoading ? null : updateRecipe,
+                    TextFormField(
+                      controller: descriptionController,
 
-                  child: isLoading
-                      ? const CircularProgressIndicator()
-                      : const Text('UPDATE'),
+                      maxLines: 4,
+
+                      decoration: InputDecoration(
+                        labelText: "Deskripsi",
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(15),
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    TextFormField(
+                      controller: ingredientsController,
+
+                      maxLines: 5,
+
+                      decoration: InputDecoration(
+                        labelText: "🥬 Bahan-bahan",
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(15),
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    TextFormField(
+                      controller: toolsController,
+
+                      maxLines: 4,
+
+                      decoration: InputDecoration(
+                        labelText: "🔪 Alat",
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(15),
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    TextFormField(
+                      controller: stepsController,
+
+                      maxLines: 8,
+
+                      decoration: InputDecoration(
+                        labelText: "👨‍🍳 Langkah-langkah",
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(15),
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 25),
+
+                    image != null
+                        ? ClipRRect(
+                            borderRadius: BorderRadius.circular(20),
+
+                            child: Image.file(
+                              image!,
+                              height: 220,
+                              width: double.infinity,
+                              fit: BoxFit.cover,
+                            ),
+                          )
+                        : ClipRRect(
+                            borderRadius: BorderRadius.circular(20),
+
+                            child: Image.network(
+                              "http://10.0.2.2:8000/storage/${widget.recipe.image}",
+                              height: 220,
+                              width: double.infinity,
+                              fit: BoxFit.cover,
+
+                              errorBuilder: (context, error, stackTrace) {
+                                return Container(
+                                  height: 220,
+                                  color: Colors.grey.shade200,
+
+                                  child: const Center(
+                                    child: Icon(
+                                      Icons.image,
+                                      size: 80,
+                                      color: Colors.grey,
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+
+                    const SizedBox(height: 15),
+
+                    SizedBox(
+                      width: double.infinity,
+
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.deepPurple,
+                        ),
+
+                        onPressed: pickImage,
+
+                        icon: const Icon(Icons.photo, color: Colors.white),
+
+                        label: const Text(
+                          "Pilih Gambar Baru",
+                          style: TextStyle(color: Colors.white),
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 30),
+
+                    SizedBox(
+                      width: double.infinity,
+                      height: 55,
+
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.deepPurple,
+
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(15),
+                          ),
+                        ),
+
+                        onPressed: isLoading ? null : updateRecipe,
+
+                        child: isLoading
+                            ? const CircularProgressIndicator(
+                                color: Colors.white,
+                              )
+                            : const Text(
+                                "✏ UPDATE RESEP",
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  color: Colors.white,
+                                ),
+                              ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ],
+            ),
           ),
         ),
       ),
